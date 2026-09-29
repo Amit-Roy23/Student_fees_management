@@ -23,9 +23,8 @@ export default async function DashboardLayout({
 
   const currentSession = sessions.find((s) => s.isCurrent) || sessions[0];
 
-  // Count overdue students for sidebar badge
-  const defaulterCount = await db.installment.groupBy({
-    by: ["studentId"],
+  // Fast indexed count for overdue badge
+  const defaulterCount = await db.installment.count({
     where: {
       status: "OVERDUE",
       sessionId: currentSession?.id,
@@ -36,7 +35,7 @@ export default async function DashboardLayout({
     <DashboardClientLayout
       sessions={sessions}
       currentSessionId={currentSession?.id || ""}
-      defaulterCount={defaulterCount.length}
+      defaulterCount={defaulterCount}
     >
       {children}
     </DashboardClientLayout>

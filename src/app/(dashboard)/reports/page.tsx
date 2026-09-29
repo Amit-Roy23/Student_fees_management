@@ -21,7 +21,9 @@ export default async function ReportsPage() {
     db.feeHead.findMany(),
     db.installment.findMany({
       where: { sessionId: activeSession?.id },
-      include: {
+      select: {
+        amountPaise: true,
+        paidAmountPaise: true,
         student: { select: { classId: true } },
       },
     }),

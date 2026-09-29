@@ -76,12 +76,12 @@ export function ReceiptModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-background">
+      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl">
         <div className="p-6 overflow-y-auto max-h-[85vh]">
           {/* Printable Receipt Paper Container */}
           <div
             id="printable-receipt"
-            className="border-2 border-dashed border-border p-6 rounded-xl bg-white text-slate-900 shadow-sm print:border-solid print:p-8"
+            className="border-2 border-dashed border-slate-300 dark:border-slate-700 p-6 rounded-xl bg-white text-slate-900 shadow-sm print:border-solid print:p-8"
           >
             {/* Header */}
             <div className="flex items-start justify-between border-b pb-4">
@@ -251,7 +251,7 @@ export function ReceiptModal({
           </div>
         </div>
 
-        <DialogFooter className="p-4 bg-muted/30 border-t flex flex-wrap items-center justify-between sm:justify-between gap-2">
+        <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between sm:justify-between gap-2">
           <div className="flex items-center gap-2">
             <Button
               type="button"

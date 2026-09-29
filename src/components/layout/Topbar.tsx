@@ -20,7 +20,7 @@ export function Topbar({
   currentSessionId?: string;
 }) {
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b bg-card/80 px-4 backdrop-blur-md">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 shadow-xs">
       {/* Left side: Hamburger (mobile) & Session switcher */}
       <div className="flex items-center gap-3">
         <Button

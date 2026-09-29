@@ -3,7 +3,6 @@
 import { db } from "@/lib/db";
 import { PaymentMode, PaymentStatus, InstallmentStatus } from "@prisma/client";
 import { calculateLateFine, formatReceiptNumber, allocatePayment } from "@/lib/fees";
-import { defaultPaymentGateway } from "@/lib/payment-gateway";
 
 export async function searchParentStudent(admissionNo: string, guardianPhone: string) {
   const cleanAdm = admissionNo.trim();
@@ -23,31 +22,45 @@ export async function searchParentStudent(admissionNo: string, guardianPhone: st
       class: true,
       section: true,
       session: true,
+      feePlans: {
+        take: 1,
+        orderBy: { createdAt: "desc" },
+      },
       installments: {
-        where: {
-          status: { in: [InstallmentStatus.PENDING, InstallmentStatus.PARTIAL, InstallmentStatus.OVERDUE] },
-        },
-        orderBy: { dueDate: "asc" },
+        orderBy: { monthIndex: "asc" },
         include: {
           fines: { where: { isWaived: false } },
+        },
+      },
+      payments: {
+        where: { status: "COMPLETED" },
+        orderBy: { paymentDate: "desc" },
+        include: {
+          collectedBy: { select: { name: true } },
+          allocations: {
+            include: {
+              installment: { select: { title: true, monthName: true } },
+            },
+          },
         },
       },
     },
   });
 
   if (!student) {
-    throw new Error("No active student found matching this Admission Number and Mobile Number. Please check your school ID card.");
+    throw new Error("No active student found matching this Admission Number and Mobile Number. Please check your school ID card or receipt.");
   }
 
   const today = new Date();
 
-  const installments = student.installments.map((inst) => {
+  // Process all installments
+  const allInstallments = student.installments.map((inst) => {
     const pendingPrincipal = Math.max(0, inst.amountPaise - inst.paidAmountPaise);
     let finePaise = 0;
 
     if (inst.fines.length > 0) {
       finePaise = inst.fines.reduce((sum, f) => sum + f.amountPaise, 0);
-    } else if (pendingPrincipal > 0) {
+    } else if (pendingPrincipal > 0 && inst.status === "OVERDUE") {
       const fineCalc = calculateLateFine(inst.amountPaise, inst.paidAmountPaise, inst.dueDate, today);
       finePaise = fineCalc.finePaise;
     }
@@ -56,6 +69,7 @@ export async function searchParentStudent(admissionNo: string, guardianPhone: st
       id: inst.id,
       title: inst.title,
       monthName: inst.monthName,
+      monthIndex: inst.monthIndex,
       dueDate: inst.dueDate,
       amountPaise: inst.amountPaise,
       paidAmountPaise: inst.paidAmountPaise,
@@ -66,7 +80,51 @@ export async function searchParentStudent(admissionNo: string, guardianPhone: st
     };
   });
 
-  const totalDue = installments.reduce((sum, i) => sum + i.totalDuePaise, 0);
+  // Pending installments available for online payment
+  const pendingInstallments = allInstallments.filter(
+    (i) => i.status === "PENDING" || i.status === "PARTIAL" || i.status === "OVERDUE" || i.totalDuePaise > 0
+  );
+
+  const totalFeePaise = student.feePlans[0]?.totalFeePaise || student.class.annualFeePaise || 4200000;
+  const totalPaidPaise = allInstallments.reduce((sum, i) => sum + i.paidAmountPaise, 0);
+  const totalDuePaise = pendingInstallments.reduce((sum, i) => sum + i.totalDuePaise, 0);
+  const totalFinePaise = pendingInstallments.reduce((sum, i) => sum + i.finePaise, 0);
+  const paidPercent = totalFeePaise > 0 ? Math.min(100, Math.round((totalPaidPaise / totalFeePaise) * 100)) : 0;
+
+  // Format past payment receipts
+  const receipts = student.payments.map((p) => ({
+    id: p.id,
+    receiptNo: p.receiptNo,
+    paymentDate: p.paymentDate,
+    amountPaise: p.amountPaise,
+    mode: p.mode,
+    transactionRef: p.transactionRef || "-",
+    bankName: p.bankName || "School Counter",
+    remarks: p.remarks || "School Fee Payment",
+    collectedBy: { name: p.collectedBy?.name || "School Office" },
+    student: {
+      admissionNo: student.admissionNo,
+      rollNo: student.rollNo,
+      firstName: student.firstName,
+      lastName: student.lastName,
+      guardianName: student.guardianName,
+      guardianPhone: student.guardianPhone,
+      class: { name: student.class.name },
+      section: { name: student.section.name },
+    },
+    session: {
+      code: student.session.code,
+      name: student.session.name,
+    },
+    allocations: p.allocations.map((a) => ({
+      amountPaise: a.amountPaise,
+      finePaidPaise: a.finePaidPaise,
+      installment: {
+        title: a.installment.title,
+        monthName: a.installment.monthName,
+      },
+    })),
+  }));
 
   return {
     student: {
@@ -75,14 +133,26 @@ export async function searchParentStudent(admissionNo: string, guardianPhone: st
       rollNo: student.rollNo,
       firstName: student.firstName,
       lastName: student.lastName,
+      gender: student.gender,
       guardianName: student.guardianName,
       guardianPhone: student.guardianPhone,
+      guardianEmail: student.guardianEmail,
+      address: student.address,
+      city: student.city,
       class: student.class,
       section: student.section,
       session: student.session,
     },
-    installments,
-    totalDuePaise: totalDue,
+    installments: pendingInstallments,
+    allInstallments,
+    receipts,
+    summary: {
+      totalFeePaise,
+      totalPaidPaise,
+      totalDuePaise,
+      totalFinePaise,
+      paidPercent,
+    },
   };
 }
 

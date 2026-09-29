@@ -72,7 +72,7 @@ export function RazorpayMockModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && !isProcessing && onClose()}>
-      <DialogContent className="max-w-md p-0 overflow-hidden border-2 border-indigo-500/30 shadow-2xl">
+      <DialogContent className="max-w-md p-0 overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl">
         {/* Mock Razorpay Header */}
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 border-b border-indigo-900">
           <div className="flex items-center justify-between">
