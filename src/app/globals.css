@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -32,6 +34,7 @@
 }
 
 :root {
+  /* Premium Crisp Light Theme */
   --background: #f8fafc;
   --foreground: #0f172a;
   --card: #ffffff;
@@ -41,48 +44,49 @@
   --primary: #2563eb;
   --primary-foreground: #ffffff;
   --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
+  --secondary-foreground: #1e293b;
   --muted: #f1f5f9;
   --muted-foreground: #64748b;
   --accent: #f1f5f9;
   --accent-foreground: #0f172a;
-  --destructive: #ef4444;
+  --destructive: #e11d48;
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
-  --input: #cbd5e1;
+  --input: #e2e8f0;
   --ring: #2563eb;
   --radius: 0.75rem;
 
-  --emerald-paid: #10b981;
-  --amber-warning: #f59e0b;
-  --rose-overdue: #ef4444;
-  --indigo-session: #6366f1;
+  --emerald-paid: #059669;
+  --amber-warning: #d97706;
+  --rose-overdue: #e11d48;
+  --indigo-session: #4f46e5;
 }
 
 .dark {
-  --background: #0b0f19;
+  /* Sleek Modern Obsidian & Midnight Slate Dark Theme */
+  --background: #090d16;
   --foreground: #f8fafc;
-  --card: #111827;
+  --card: #0f172a;
   --card-foreground: #f8fafc;
-  --popover: #111827;
+  --popover: #0f172a;
   --popover-foreground: #f8fafc;
   --primary: #3b82f6;
   --primary-foreground: #ffffff;
-  --secondary: #1f2937;
+  --secondary: #1e293b;
   --secondary-foreground: #f8fafc;
-  --muted: #1f2937;
-  --muted-foreground: #9ca3af;
-  --accent: #1f2937;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
   --accent-foreground: #f8fafc;
-  --destructive: #ef4444;
+  --destructive: #f43f5e;
   --destructive-foreground: #ffffff;
-  --border: #374151;
-  --input: #374151;
+  --border: #1e293b;
+  --input: #1e293b;
   --ring: #3b82f6;
 
-  --emerald-paid: #34d399;
-  --amber-warning: #fbbf24;
-  --rose-overdue: #f87171;
+  --emerald-paid: #10b981;
+  --amber-warning: #f59e0b;
+  --rose-overdue: #fb7185;
   --indigo-session: #818cf8;
 }
 
@@ -95,6 +99,7 @@ body {
   color: var(--foreground);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Custom modern scrollbars */
@@ -110,10 +115,13 @@ body {
   border-radius: 9999px;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: #334155;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 /* Print specific styles for Receipts & Statements */

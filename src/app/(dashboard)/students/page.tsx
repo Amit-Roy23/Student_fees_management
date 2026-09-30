@@ -8,19 +8,20 @@ export default async function StudentsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const [studentsData, classes] = await Promise.all([
-    getStudents({ limit: 300 }),
+  const [students, classes] = await Promise.all([
+    getStudents(),
     db.class.findMany({
-      include: { sections: true },
       orderBy: { order: "asc" },
     }),
   ]);
 
+  const userRole = (session.user as any).role || "MD";
+
   return (
     <StudentsListClient
-      students={studentsData.students}
+      students={students}
       classes={classes}
-      totalCount={studentsData.totalCount}
+      userRole={userRole}
     />
   );
 }

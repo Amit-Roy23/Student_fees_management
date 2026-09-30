@@ -2,60 +2,36 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { DashboardClient } from "@/features/dashboard/DashboardClient";
-import { startOfMonth, startOfDay } from "date-fns";
+import { startOfMonth } from "date-fns";
+import { SCHOOL_CONFIG } from "@/lib/config";
+import { hasPermission } from "@/lib/permissions";
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const activeSession = await db.session.findFirst({
-    where: { isCurrent: true },
-  });
+  const userRole = (session.user as any).role;
+  if (!hasPermission(userRole, "DASHBOARD_VIEW")) {
+    redirect("/collect-fee");
+  }
 
   const now = new Date();
   const monthStart = startOfMonth(now);
-  const todayStart = startOfDay(now);
 
-  // 1. Fetch KPI aggregates
+  // Parallel database aggregates
   const [
-    totalSessionCollected,
-    totalMonthCollected,
-    totalTodayCollected,
+    monthCollectedAgg,
     totalStudents,
     allInstallments,
-    allFines,
+    finesAgg,
     recentPayments,
   ] = await Promise.all([
-    // Total Session Collections
     db.payment.aggregate({
-      where: { sessionId: activeSession?.id, status: "COMPLETED" },
+      where: { paymentDate: { gte: monthStart } },
       _sum: { amountPaise: true },
     }),
-    // This Month Collections
-    db.payment.aggregate({
-      where: {
-        sessionId: activeSession?.id,
-        status: "COMPLETED",
-        paymentDate: { gte: monthStart },
-      },
-      _sum: { amountPaise: true },
-    }),
-    // Today Collections
-    db.payment.aggregate({
-      where: {
-        sessionId: activeSession?.id,
-        status: "COMPLETED",
-        paymentDate: { gte: todayStart },
-      },
-      _sum: { amountPaise: true },
-    }),
-    // Student Count
-    db.student.count({
-      where: { sessionId: activeSession?.id, status: "ACTIVE" },
-    }),
-    // All Installments for session
+    db.student.count(),
     db.installment.findMany({
-      where: { sessionId: activeSession?.id },
       select: {
         studentId: true,
         amountPaise: true,
@@ -65,25 +41,21 @@ export default async function DashboardPage() {
         monthIndex: true,
       },
     }),
-    // All Fines
-    db.fine.findMany({
-      where: { sessionId: activeSession?.id },
-      select: { amountPaise: true, isWaived: true },
+    db.fine.aggregate({
+      where: { isWaived: false },
+      _sum: { amountPaise: true },
     }),
-    // Recent Payments
     db.payment.findMany({
-      where: { sessionId: activeSession?.id, status: "COMPLETED" },
       include: {
         student: {
-          include: { class: true, section: true },
+          include: { class: true },
         },
       },
       orderBy: { paymentDate: "desc" },
-      take: 8,
+      take: 6,
     }),
   ]);
 
-  // Compute total outstanding and overdue amount
   let totalOutstanding = 0;
   let totalOverdue = 0;
   const defaulterStudentMap = new Map<string, number>();
@@ -102,42 +74,6 @@ export default async function DashboardPage() {
     }
   }
 
-  const totalFinesCollected = allFines
-    .filter((f) => f.isWaived)
-    .reduce((sum, f) => sum + f.amountPaise, 0);
-
-  // 2. Fetch payment mode split
-  const modeGroups = await db.payment.groupBy({
-    by: ["mode"],
-    where: { sessionId: activeSession?.id, status: "COMPLETED" },
-    _sum: { amountPaise: true },
-  });
-
-  const totalCollectedSum = totalSessionCollected._sum.amountPaise || 1;
-  const modeSplitData = modeGroups.map((m) => {
-    const val = m._sum.amountPaise || 0;
-    return {
-      name: m.mode.replace("_", " "),
-      value: val,
-      percent: Math.round((val / totalCollectedSum) * 100),
-    };
-  });
-
-  // 3. Monthly Trend Chart (April to Jan)
-  const monthNames = ["April", "May", "June", "July", "August", "September", "October", "November", "December", "January"];
-  const monthlyChartData = monthNames.map((mName, idx) => {
-    const monthInsts = allInstallments.filter((i) => i.monthIndex === idx + 1);
-    const expected = monthInsts.reduce((sum, i) => sum + i.amountPaise, 0);
-    const collected = monthInsts.reduce((sum, i) => sum + i.paidAmountPaise, 0);
-
-    return {
-      month: mName.slice(0, 3),
-      expectedLakhs: Number((expected / 10000000).toFixed(2)),
-      collectedLakhs: Number((collected / 10000000).toFixed(2)),
-    };
-  });
-
-  // 4. Fetch Top Defaulters
   const topDefaulterIds = Array.from(defaulterStudentMap.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
@@ -145,15 +81,14 @@ export default async function DashboardPage() {
 
   const topDefaulterStudents = await db.student.findMany({
     where: { id: { in: topDefaulterIds } },
-    include: { class: true, section: true },
+    include: { class: true },
   });
 
   const formattedTopDefaulters = topDefaulterStudents
     .map((s) => ({
       id: s.id,
       admissionNo: s.admissionNo,
-      firstName: s.firstName,
-      lastName: s.lastName,
+      name: s.name,
       class: s.class,
       guardianPhone: s.guardianPhone,
       totalDuePaise: defaulterStudentMap.get(s.id) || 0,
@@ -162,20 +97,15 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
-      sessionCode={activeSession?.code || "2026-27"}
+      sessionCode={SCHOOL_CONFIG.academicSession}
       kpis={{
-        totalSessionCollectedPaise: totalSessionCollected._sum.amountPaise || 0,
-        totalMonthCollectedPaise: totalMonthCollected._sum.amountPaise || 0,
-        totalTodayCollectedPaise: totalTodayCollected._sum.amountPaise || 0,
+        totalMonthCollectedPaise: monthCollectedAgg._sum.amountPaise || 0,
         totalOutstandingPaise: totalOutstanding,
         totalOverduePaise: totalOverdue,
-        totalFinesCollectedPaise: totalFinesCollected,
+        totalFinesCollectedPaise: finesAgg._sum.amountPaise || 0,
         defaulterCount: defaulterStudentMap.size,
         totalStudents,
       }}
-      monthlyChartData={monthlyChartData}
-      modeSplitData={modeSplitData}
-      classDuesData={[]}
       recentPayments={recentPayments}
       topDefaulters={formattedTopDefaulters}
     />

@@ -1,12 +1,13 @@
-import { addMonths, setDate, startOfDay, differenceInDays } from "date-fns";
+import { startOfDay, differenceInDays } from "date-fns";
+import { SCHOOL_CONFIG } from "@/lib/config";
 
 export interface FeePlanInput {
   totalFeePaise: number;
   admissionFeePaise?: number;
   discountPaise?: number;
-  installmentCount?: number; // default 10
-  dueDayOfMonth?: number; // default 10
-  sessionStartYear?: number; // e.g. 2026
+  installmentCount?: number;
+  dueDayOfMonth?: number;
+  sessionStartYear?: number;
   sessionStartMonth?: number; // 4 = April
 }
 
@@ -16,13 +17,6 @@ export interface GeneratedInstallment {
   title: string;
   dueDate: Date;
   amountPaise: number;
-}
-
-export interface FineRuleConfig {
-  graceDays: number;
-  fineType: "FLAT_PER_DAY" | "FLAT_ONE_TIME" | "PERCENTAGE";
-  ratePaiseOrPercent: number; // paise for flat (e.g. 2000 = ₹20/day) or percentage integer/float (e.g. 5 = 5%)
-  maxCapPaise: number; // maximum cap in paise (e.g. 100000 = ₹1,000 max)
 }
 
 export interface FineCalculationResult {
@@ -64,9 +58,9 @@ export function generateInstallmentSchedule(input: FeePlanInput): GeneratedInsta
     totalFeePaise,
     admissionFeePaise = 0,
     discountPaise = 0,
-    installmentCount = 10,
-    dueDayOfMonth = 10,
-    sessionStartYear = new Date().getFullYear(),
+    installmentCount = SCHOOL_CONFIG.defaultInstallmentsCount,
+    dueDayOfMonth = SCHOOL_CONFIG.defaultDueDayOfMonth,
+    sessionStartYear = SCHOOL_CONFIG.sessionStartYear,
     sessionStartMonth = 4, // April
   } = input;
 
@@ -79,21 +73,16 @@ export function generateInstallmentSchedule(input: FeePlanInput): GeneratedInsta
   const installments: GeneratedInstallment[] = [];
 
   for (let i = 0; i < count; i++) {
-    // Determine calendar month (0-indexed for JS Date)
-    const monthOffset = i;
-    // Starting in April (month index 3 in 0-based, or sessionStartMonth - 1)
-    const currentMonth0Based = (sessionStartMonth - 1 + monthOffset) % 12;
-    const yearOffset = Math.floor((sessionStartMonth - 1 + monthOffset) / 12);
+    const currentMonth0Based = (sessionStartMonth - 1 + i) % 12;
+    const yearOffset = Math.floor((sessionStartMonth - 1 + i) / 12);
     const targetYear = sessionStartYear + yearOffset;
 
     const monthName = MONTH_NAMES[currentMonth0Based];
-    
-    // Set due date to specific day of month
-    let dueDate = new Date(targetYear, currentMonth0Based, Math.min(28, dueDayOfMonth), 23, 59, 59);
+    const dueDate = new Date(targetYear, currentMonth0Based, Math.min(28, dueDayOfMonth), 23, 59, 59);
 
-    // Any remainder is added to the 1st installment so sum matches exactly
+    // Remainder added to first month
     const monthlyAmount = i === 0 ? baseMonthlyAmount + remainder : baseMonthlyAmount;
-    const title = `${monthName} ${targetYear} - Tuition Fee`;
+    const title = `${monthName} ${targetYear}`;
 
     installments.push({
       monthIndex: i + 1,
@@ -108,61 +97,68 @@ export function generateInstallmentSchedule(input: FeePlanInput): GeneratedInsta
 }
 
 /**
- * Calculates late fine based on grace period and fine rules.
+ * Calculates late fine: ₹10 per day after due date, capped at ₹500 (50,000 paise).
+ * Supports both signatures:
+ * 1. calculateLateFine(dueDate, asOfDate?)
+ * 2. calculateLateFine(installmentAmountPaise, paidAmountPaise, dueDate, asOfDate?, config?)
  */
 export function calculateLateFine(
-  installmentAmountPaise: number,
-  paidAmountPaise: number,
-  dueDate: Date | string,
-  asOfDate: Date | string = new Date(),
-  config: FineRuleConfig = {
-    graceDays: 5,
-    fineType: "FLAT_PER_DAY",
-    ratePaiseOrPercent: 2000, // ₹20/day
-    maxCapPaise: 50000, // ₹500 cap
+  arg1: Date | string | number,
+  arg2?: Date | string | number,
+  arg3?: Date | string,
+  arg4?: Date | string,
+  arg5?: {
+    graceDays?: number;
+    fineType?: "FLAT_PER_DAY" | "FLAT_ONE_TIME" | "PERCENTAGE";
+    ratePaiseOrPercent?: number;
+    maxCapPaise?: number;
   }
 ): FineCalculationResult {
-  const due = startOfDay(typeof dueDate === "string" ? new Date(dueDate) : dueDate);
-  const asOf = startOfDay(typeof asOfDate === "string" ? new Date(asOfDate) : asOfDate);
+  let dueDate: Date;
+  let asOfDate: Date;
+  let pendingAmount: number = 1;
+  const config = arg5 || {};
 
-  const pendingAmount = Math.max(0, installmentAmountPaise - paidAmountPaise);
-  if (pendingAmount === 0 || asOf <= due) {
-    return {
-      isOverdue: false,
-      daysOverdue: 0,
-      billableDays: 0,
-      finePaise: 0,
-    };
+  if (typeof arg1 === "number") {
+    // 5-argument signature: (installmentAmountPaise, paidAmountPaise, dueDate, asOfDate, config)
+    const amount = arg1;
+    const paid = typeof arg2 === "number" ? arg2 : 0;
+    pendingAmount = Math.max(0, amount - paid);
+    dueDate = startOfDay(typeof arg3 === "string" ? new Date(arg3) : (arg3 as Date));
+    asOfDate = startOfDay(arg4 ? (typeof arg4 === "string" ? new Date(arg4) : arg4) : new Date());
+  } else {
+    // 2-argument signature: (dueDate, asOfDate)
+    dueDate = startOfDay(typeof arg1 === "string" ? new Date(arg1) : arg1);
+    asOfDate = startOfDay(arg2 ? (typeof arg2 === "string" ? new Date(arg2 as string) : (arg2 as Date)) : new Date());
   }
 
-  const rawDays = differenceInDays(asOf, due);
-  if (rawDays <= config.graceDays) {
-    return {
-      isOverdue: true,
-      daysOverdue: rawDays,
-      billableDays: 0,
-      finePaise: 0,
-    };
+  if (pendingAmount === 0 || asOfDate <= dueDate) {
+    return { isOverdue: false, daysOverdue: 0, billableDays: 0, finePaise: 0 };
   }
 
-  const billableDays = rawDays - config.graceDays;
+  const rawDays = differenceInDays(asOfDate, dueDate);
+  const graceDays = config.graceDays ?? 0;
+
+  if (rawDays <= graceDays) {
+    return { isOverdue: true, daysOverdue: rawDays, billableDays: 0, finePaise: 0 };
+  }
+
+  const billableDays = rawDays - graceDays;
+  const rate = config.ratePaiseOrPercent ?? SCHOOL_CONFIG.finePerDayPaise;
+  const maxCap = config.maxCapPaise ?? SCHOOL_CONFIG.fineCapPaise;
+
   let finePaise = 0;
-
-  switch (config.fineType) {
-    case "FLAT_PER_DAY":
-      finePaise = billableDays * config.ratePaiseOrPercent;
-      break;
-    case "FLAT_ONE_TIME":
-      finePaise = config.ratePaiseOrPercent;
-      break;
-    case "PERCENTAGE":
-      // ratePaiseOrPercent represents percentage (e.g. 5 for 5%)
-      finePaise = Math.round((pendingAmount * config.ratePaiseOrPercent) / 100);
-      break;
+  if (config.fineType === "PERCENTAGE") {
+    finePaise = Math.round((pendingAmount * rate) / 100);
+  } else if (config.fineType === "FLAT_ONE_TIME") {
+    finePaise = rate;
+  } else {
+    // FLAT_PER_DAY default (₹10/day)
+    finePaise = billableDays * rate;
   }
 
-  if (config.maxCapPaise > 0) {
-    finePaise = Math.min(finePaise, config.maxCapPaise);
+  if (maxCap > 0) {
+    finePaise = Math.min(finePaise, maxCap);
   }
 
   return {
@@ -184,11 +180,8 @@ export function allocatePayment(
   let remainingMoney = paymentAmountPaise;
   const allocations: PaymentAllocationResult["allocations"] = [];
 
-  // Sort installments by dueDate ascending
   const sorted = [...installments].sort((a, b) => {
-    const da = new Date(a.dueDate).getTime();
-    const db = new Date(b.dueDate).getTime();
-    return da - db;
+    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
   });
 
   for (const inst of sorted) {
@@ -236,7 +229,7 @@ export function allocatePayment(
  * Generates clean formatted receipt number, e.g. "REC-2026-0001"
  */
 export function formatReceiptNumber(
-  sessionCode: string,
+  sessionCode: string = SCHOOL_CONFIG.academicSession,
   sequenceNumber: number,
   prefix: string = "REC"
 ): string {

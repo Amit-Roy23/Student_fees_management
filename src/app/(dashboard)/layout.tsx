@@ -10,31 +10,22 @@ export default async function DashboardLayout({
 }) {
   const session = await auth();
 
-  // If not logged in, redirect to login
   if (!session?.user) {
     redirect("/login");
   }
 
-  // Fetch sessions for switcher
-  const sessions = await db.session.findMany({
-    orderBy: { startDate: "desc" },
-    select: { id: true, name: true, code: true, isCurrent: true },
-  });
+  const userRole = (session.user as any).role;
+  if (userRole === "PARENT") {
+    redirect("/parent");
+  }
 
-  const currentSession = sessions.find((s) => s.isCurrent) || sessions[0];
-
-  // Fast indexed count for overdue badge
   const defaulterCount = await db.installment.count({
-    where: {
-      status: "OVERDUE",
-      sessionId: currentSession?.id,
-    },
+    where: { status: "OVERDUE" },
   });
 
   return (
     <DashboardClientLayout
-      sessions={sessions}
-      currentSessionId={currentSession?.id || ""}
+      user={session.user}
       defaulterCount={defaulterCount}
     >
       {children}

@@ -2,16 +2,15 @@
 
 import * as React from "react";
 import { formatINR, amountInWordsINR, formatDate, formatDateTime } from "@/lib/formatters";
+import { SCHOOL_NAME, SESSION_CODE } from "@/lib/config";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Printer, Download, MessageSquare, CheckCircle2, GraduationCap, X } from "lucide-react";
+import { Printer, GraduationCap, MessageSquare, Download } from "lucide-react";
 import { toast } from "sonner";
 
 export interface ReceiptData {
@@ -20,26 +19,18 @@ export interface ReceiptData {
   paymentDate: Date | string;
   amountPaise: number;
   mode: string;
-  transactionRef?: string | null;
-  bankName?: string | null;
+  txnRef?: string | null;
   remarks?: string | null;
   student: {
     admissionNo: string;
-    rollNo?: string | null;
-    firstName: string;
-    lastName: string;
+    name: string;
     guardianName: string;
     guardianPhone: string;
     class: { name: string };
-    section: { name: string };
-  };
-  session: {
-    code: string;
-    name: string;
   };
   collectedBy: {
     name: string;
-    role: string;
+    role?: string;
   };
   allocations: {
     amountPaise: number;
@@ -67,44 +58,39 @@ export function ReceiptModal({
   };
 
   const handleWhatsAppShare = () => {
-    const text = `*Fee Receipt Confirmation - Arohon Vidya Mandir*\nReceipt No: ${receipt.receiptNo}\nStudent: ${receipt.student.firstName} ${receipt.student.lastName} (${receipt.student.admissionNo})\nClass: ${receipt.student.class.name}-${receipt.student.section.name}\nAmount Paid: ${formatINR(receipt.amountPaise)}\nMode: ${receipt.mode}\nDate: ${formatDate(receipt.paymentDate)}\n\nThank you for your payment. This is an official digital receipt.`;
-    
-    // In mock demo, show realistic toast and open web whatsapp or copy
+    const text = `*Fee Receipt - ${SCHOOL_NAME}*\nReceipt No: ${receipt.receiptNo}\nStudent: ${receipt.student.name} (${receipt.student.admissionNo})\nClass: ${receipt.student.class.name}\nAmount Paid: ${formatINR(receipt.amountPaise)}\nMode: ${receipt.mode}${receipt.txnRef ? ` (Ref: ${receipt.txnRef})` : ""}\nDate: ${formatDate(receipt.paymentDate)}\n\nThank you for your payment.`;
     navigator.clipboard?.writeText(text);
-    toast.success("Receipt link & WhatsApp message copied to clipboard! (Simulated send to " + receipt.student.guardianPhone + ")");
+    toast.success("Receipt details copied! (Simulated send to " + receipt.student.guardianPhone + ")");
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl p-0 overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl">
-        <div className="p-6 overflow-y-auto max-h-[85vh]">
+      <DialogContent className="max-w-2xl p-0 overflow-hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl">
+        <div className="p-6 overflow-y-auto max-h-[85vh] bg-slate-100/50 dark:bg-slate-950/50">
           {/* Printable Receipt Paper Container */}
           <div
             id="printable-receipt"
-            className="border-2 border-dashed border-slate-300 dark:border-slate-700 p-6 rounded-xl bg-white text-slate-900 shadow-sm print:border-solid print:p-8"
+            className="border border-slate-300 dark:border-slate-700 p-6 rounded-xl bg-white text-slate-900 shadow-sm print:border-none print:p-0"
           >
             {/* Header */}
-            <div className="flex items-start justify-between border-b pb-4">
+            <div className="flex items-start justify-between border-b border-slate-200 pb-4">
               <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl bg-blue-700 text-white flex items-center justify-center font-bold shadow-xs">
-                  <GraduationCap className="h-7 w-7" />
+                <div className="h-11 w-11 rounded-lg bg-blue-700 text-white flex items-center justify-center font-bold">
+                  <GraduationCap className="h-6 w-6" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black tracking-tight text-blue-900 uppercase">
-                    Arohon Vidya Mandir
+                  <h2 className="text-xl font-bold tracking-tight text-blue-900">
+                    {SCHOOL_NAME}
                   </h2>
-                  <p className="text-[11px] text-slate-600 font-medium">
-                    (Affiliated to CISCE / State Board • Code: WB-1994)
-                  </p>
-                  <p className="text-[10px] text-slate-500">
-                    Plot 14, Sector V, Salt Lake City, Kolkata - 700091 | Ph: +91 33 2357 8900
+                  <p className="text-xs text-slate-500">
+                    Kolkata, West Bengal • Academic Session {SESSION_CODE}
                   </p>
                 </div>
               </div>
 
               <div className="text-right flex flex-col items-end">
-                <Badge variant="default" className="bg-blue-800 text-white font-bold text-xs uppercase px-2.5 py-0.5 mb-1">
-                  Fee Receipt
+                <Badge variant="default" className="bg-blue-800 text-white font-semibold text-xs uppercase px-2 py-0.5 mb-1">
+                  Official Fee Receipt
                 </Badge>
                 <span className="font-mono text-xs font-bold text-slate-900">
                   {receipt.receiptNo}
@@ -116,39 +102,33 @@ export function ReceiptModal({
             </div>
 
             {/* Student & Session Info Box */}
-            <div className="grid grid-cols-2 gap-4 py-4 my-2 text-xs border-b bg-slate-50/70 p-3 rounded-lg">
+            <div className="grid grid-cols-2 gap-4 py-3 my-3 text-xs border border-slate-100 bg-slate-50 p-3 rounded-lg">
               <div className="space-y-1">
                 <div>
-                  <span className="text-slate-500 font-medium">Student Name: </span>
-                  <span className="font-bold text-slate-900">
-                    {receipt.student.firstName} {receipt.student.lastName}
-                  </span>
+                  <span className="text-slate-500">Student Name: </span>
+                  <span className="font-bold text-slate-900">{receipt.student.name}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-medium">Admission No: </span>
-                  <span className="font-mono font-bold text-slate-900">
-                    {receipt.student.admissionNo}
-                  </span>
+                  <span className="text-slate-500">Admission No: </span>
+                  <span className="font-mono font-bold text-slate-900">{receipt.student.admissionNo}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-medium">Class & Section: </span>
-                  <span className="font-semibold text-slate-900">
-                    {receipt.student.class.name} - Section {receipt.student.section.name} (Roll: {receipt.student.rollNo || "N/A"})
-                  </span>
+                  <span className="text-slate-500">Class: </span>
+                  <span className="font-semibold text-slate-900">{receipt.student.class.name}</span>
                 </div>
               </div>
 
               <div className="space-y-1 text-right">
                 <div>
-                  <span className="text-slate-500 font-medium">Academic Session: </span>
-                  <span className="font-bold text-blue-900">{receipt.session.code}</span>
+                  <span className="text-slate-500">Academic Session: </span>
+                  <span className="font-bold text-blue-900">{SESSION_CODE}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-medium">Guardian Name: </span>
+                  <span className="text-slate-500">Guardian Name: </span>
                   <span className="font-semibold text-slate-900">{receipt.student.guardianName}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-medium">Guardian Mobile: </span>
+                  <span className="text-slate-500">Guardian Mobile: </span>
                   <span className="font-mono font-semibold text-slate-900">{receipt.student.guardianPhone}</span>
                 </div>
               </div>
@@ -157,9 +137,9 @@ export function ReceiptModal({
             {/* Table of Breakdown */}
             <table className="w-full text-xs my-3 border-collapse">
               <thead>
-                <tr className="border-b bg-slate-100 text-slate-700 font-bold">
+                <tr className="border-b border-slate-200 bg-slate-100/80 text-slate-700 font-semibold">
                   <th className="py-2 px-2 text-left">#</th>
-                  <th className="py-2 px-2 text-left">Fee Particulars</th>
+                  <th className="py-2 px-2 text-left">Particulars</th>
                   <th className="py-2 px-2 text-right">Fee (₹)</th>
                   <th className="py-2 px-2 text-right">Late Fine (₹)</th>
                   <th className="py-2 px-2 text-right">Total (₹)</th>
@@ -168,7 +148,7 @@ export function ReceiptModal({
               <tbody className="divide-y divide-slate-100">
                 {receipt.allocations.length > 0 ? (
                   receipt.allocations.map((alloc, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50">
+                    <tr key={idx}>
                       <td className="py-2 px-2 text-slate-500">{idx + 1}</td>
                       <td className="py-2 px-2 font-medium text-slate-800">
                         {alloc.installment.title || `${alloc.installment.monthName} Installment`}
@@ -188,7 +168,7 @@ export function ReceiptModal({
                   <tr>
                     <td className="py-2 px-2 text-slate-500">1</td>
                     <td className="py-2 px-2 font-medium text-slate-800">
-                      School Fee Payment ({receipt.remarks || "General Collection"})
+                      School Fee ({receipt.remarks || "General Collection"})
                     </td>
                     <td className="py-2 px-2 text-right font-mono">{formatINR(receipt.amountPaise)}</td>
                     <td className="py-2 px-2 text-right font-mono">-</td>
@@ -198,10 +178,10 @@ export function ReceiptModal({
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-slate-300 font-bold bg-slate-50">
-                  <td colSpan={4} className="py-2.5 px-2 text-right uppercase text-slate-700">
+                  <td colSpan={4} className="py-2 px-2 text-right uppercase text-slate-700">
                     Grand Total Paid:
                   </td>
-                  <td className="py-2.5 px-2 text-right text-sm text-blue-900 font-mono">
+                  <td className="py-2 px-2 text-right text-sm text-blue-900 font-mono">
                     {formatINR(receipt.amountPaise)}
                   </td>
                 </tr>
@@ -209,74 +189,85 @@ export function ReceiptModal({
             </table>
 
             {/* Amount in Words */}
-            <div className="py-2 text-xs border-y border-dashed my-2 text-slate-800">
-              <span className="font-semibold text-slate-600">Amount in words: </span>
-              <span className="font-bold text-slate-950 italic">
+            <div className="py-2 text-xs border-y border-dashed border-slate-200 my-2 text-slate-800">
+              <span className="text-slate-500">Amount in words: </span>
+              <span className="font-semibold text-slate-900 italic">
                 {amountInWordsINR(receipt.amountPaise)}
               </span>
             </div>
 
-            {/* Payment Mode & Bank Ref */}
+            {/* Payment Mode & Details */}
             <div className="grid grid-cols-2 gap-2 text-xs py-2">
               <div>
                 <span className="text-slate-500">Payment Mode: </span>
                 <span className="font-bold uppercase text-slate-800">{receipt.mode}</span>
-                {receipt.transactionRef && (
+                {receipt.txnRef && (
                   <span className="text-slate-600 ml-2 font-mono">
-                    (Ref: {receipt.transactionRef})
+                    (Ref: {receipt.txnRef})
                   </span>
                 )}
               </div>
               <div className="text-right">
-                <span className="text-slate-500">Cashier / Collected By: </span>
-                <span className="font-semibold text-slate-800">{receipt.collectedBy.name}</span>
+                <span className="text-slate-500">Collected By: </span>
+                <span className="font-semibold text-slate-800">{receipt.collectedBy?.name || "Counter Cashier"}</span>
               </div>
             </div>
 
-            {/* Signatures & Footer Note */}
-            <div className="mt-8 pt-4 flex items-end justify-between border-t text-[10px] text-slate-500">
-              <div className="max-w-[320px]">
-                <p className="italic font-medium">
-                  * Note: Computer generated fee receipt. No physical signature required. Fees once deposited are non-refundable.
-                </p>
-              </div>
-
-              <div className="text-center space-y-1">
-                <div className="h-8 border-b border-slate-400 w-36 mx-auto mb-1 flex items-center justify-center">
-                  <span className="font-serif italic text-slate-600 text-xs">Arohon Accounts</span>
-                </div>
-                <p className="font-bold uppercase text-slate-700">Authorized Signatory</p>
+            {/* Footer */}
+            <div className="mt-6 pt-3 flex items-end justify-between border-t border-slate-200 text-[10px] text-slate-400">
+              <p className="italic">
+                * Computer generated receipt. Fees once deposited are non-refundable.
+              </p>
+              <div className="text-center">
+                <div className="h-6 border-b border-slate-300 w-28 mx-auto mb-1"></div>
+                <p className="font-semibold text-slate-600 uppercase">Authorized Signatory</p>
               </div>
             </div>
           </div>
         </div>
 
-        <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between sm:justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleWhatsAppShare}
-              className="gap-1.5 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50"
-            >
-              <MessageSquare className="h-4 w-4 text-emerald-600" />
-              <span>Send WhatsApp (Mock)</span>
-            </Button>
-          </div>
+        <DialogFooter className="p-4 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-row items-center justify-between gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleWhatsAppShare}
+            className="gap-1.5 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-xs"
+          >
+            <MessageSquare className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Copy WhatsApp Preview</span>
+          </Button>
 
           <div className="flex items-center gap-2">
+            <a href={`/api/receipts/${receipt.id}/pdf`} target="_blank" rel="noreferrer">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5 font-bold text-xs text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/50"
+              >
+                <Download className="h-4 w-4" />
+                <span>Download Bill (PDF)</span>
+              </Button>
+            </a>
+
             <Button
               type="button"
               variant="default"
               size="sm"
               onClick={handlePrint}
-              className="gap-1.5 font-bold"
+              className="gap-1.5 font-bold text-xs bg-blue-700 hover:bg-blue-800 text-white"
             >
               <Printer className="h-4 w-4" />
-              <span>Print Receipt</span>
+              <span>Print</span>
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              className="text-xs border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300"
+            >
               Close
             </Button>
           </div>

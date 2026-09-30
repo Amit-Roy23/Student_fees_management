@@ -1,6 +1,3 @@
-// Prisma schema for SchoolPay (School Fee & Accounts Management System)
-// Zero-setup with SQLite, directly portable to PostgreSQL
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,15 +8,9 @@ datasource db {
 }
 
 enum Role {
-  ADMIN
-  ACCOUNTANT
-  VIEWER
-}
-
-enum StudentStatus {
-  ACTIVE
-  INACTIVE
-  ALUMNI
+  MD
+  CLERK
+  PARENT
 }
 
 enum InstallmentStatus {
@@ -31,424 +22,221 @@ enum InstallmentStatus {
 
 enum PaymentMode {
   CASH
+  ONLINE
+}
+
+enum PaymentMethod {
+  CASH
   UPI
+  NETBANKING
+  CARD
   BANK_TRANSFER
-  CHEQUE
-  ONLINE_GATEWAY
 }
 
-enum PaymentStatus {
-  COMPLETED
-  REVERSED
+enum PaymentSource {
+  STAFF
+  PARENT
 }
 
-enum ExpenseCategory {
-  UTILITIES
-  MAINTENANCE
-  SALARIES
-  SUPPLIES
-  EVENTS
-  PRINTING
-  INFRASTRUCTURE
-  OTHER
-}
-
-enum ReminderChannel {
-  WHATSAPP
-  SMS
-}
-
-enum ReminderStatus {
-  QUEUED
-  SENT
-  DELIVERED
+enum PaymentOrderStatus {
+  CREATED
+  PAID
   FAILED
 }
 
-enum Language {
-  EN
-  BN
-  HI
-}
-
-enum FineType {
-  FLAT_PER_DAY
-  FLAT_ONE_TIME
-  PERCENTAGE
-}
-
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   name         String
   passwordHash String
-  role         Role        @default(ACCOUNTANT)
-  avatar       String?
-  phone        String?
-  active       Boolean     @default(true)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  role         Role      @default(CLERK)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  paymentsCollected Payment[]   @relation("CollectorUser")
-  paymentsReversed  Payment[]   @relation("ReverserUser")
-  finesWaived       Fine[]      @relation("FineWaivedUser")
-  expensesCreated   Expense[]   @relation("ExpenseCreatedUser")
-  cashBooksClosed   CashBookDay[] @relation("CashBookClosedUser")
-  auditLogs         AuditLog[]
+  paymentsCollected Payment[]
   remindersSent     ReminderLog[]
-
-  @@index([role])
-}
-
-model Session {
-  id        String   @id @default(cuid())
-  name      String   // e.g. "2026-2027"
-  code      String   @unique // e.g. "2026-27"
-  startDate DateTime
-  endDate   DateTime
-  isCurrent Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  students      Student[]
-  feePlans      StudentFeePlan[]
-  installments  Installment[]
-  payments      Payment[]
-  fines         Fine[]
-  expenses      Expense[]
-  cashBooks     CashBookDay[]
-  reminderLogs  ReminderLog[]
-  feeStructures FeeStructure[]
-
-  @@index([isCurrent])
+  children          Student[]      @relation("ParentStudents")
+  paymentOrders     PaymentOrder[]
 }
 
 model Class {
-  id              String         @id @default(cuid())
-  name            String         // e.g. "Nursery", "Class 1", "Class 10"
-  code            String         @unique // e.g. "NUR", "C1", "C10"
-  order           Int            @default(0)
-  annualFeePaise  Int            @default(0)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id                 String    @id @default(cuid())
+  name               String    // e.g. "Class 1", "Class 10"
+  code               String    @unique // e.g. "C1", "C10"
+  order              Int       @default(0)
+  admissionFeePaise  Int       @default(600000)  // ₹6,000 default
+  remainingFeePaise  Int       @default(3600000) // ₹36,000 default
+  installmentCount   Int       @default(10)      // 10 monthly installments
+  dueDayOfMonth      Int       @default(10)      // 10th of each month
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  sections        Section[]
-  students        Student[]
-  feeStructures   FeeStructure[]
+  students           Student[]
 
   @@index([order])
 }
 
-model Section {
-  id        String   @id @default(cuid())
-  name      String   // e.g. "A", "B", "Rose"
-  classId   String
-  class     Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  students  Student[]
-
-  @@unique([classId, name])
-  @@index([classId])
-}
-
 model Student {
-  id               String        @id @default(cuid())
-  admissionNo      String        @unique // e.g. "AVM-2026-001"
-  rollNo           String?
-  firstName        String
-  lastName         String
-  gender           String        @default("Male")
-  dob              DateTime?
-  guardianName     String
-  guardianRelation String        @default("Father")
-  guardianPhone    String        // Used for SMS/WhatsApp
-  guardianEmail    String?
-  address          String?
-  city             String        @default("Kolkata")
-  state            String        @default("West Bengal")
-  pinCode          String?
-  status           StudentStatus @default(ACTIVE)
-  admissionDate    DateTime      @default(now())
-  avatarUrl        String?
-  classId          String
-  sectionId        String
-  sessionId        String
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id            String        @id @default(cuid())
+  admissionNo   String        @unique // e.g. "AVM-2026-001"
+  name          String        // e.g. "Rohan Sharma"
+  classId       String
+  parentUserId  String?
+  guardianName  String
+  guardianPhone String
+  address       String?
+  admissionDate DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  class            Class         @relation(fields: [classId], references: [id])
-  section          Section       @relation(fields: [sectionId], references: [id])
-  session          Session       @relation(fields: [sessionId], references: [id])
+  class         Class         @relation(fields: [classId], references: [id])
+  parentUser    User?         @relation("ParentStudents", fields: [parentUserId], references: [id], onDelete: SetNull)
+  feePlans      FeePlan[]
+  installments  Installment[]
+  payments      Payment[]
+  fines         Fine[]
+  reminderLogs  ReminderLog[]
+  paymentOrders PaymentOrder[]
 
-  feePlans         StudentFeePlan[]
-  installments     Installment[]
-  payments         Payment[]
-  fines            Fine[]
-  reminderLogs     ReminderLog[]
-
-  @@index([classId, sectionId])
-  @@index([sessionId])
-  @@index([guardianPhone])
-  @@index([status])
+  @@index([classId])
+  @@index([parentUserId])
+  @@index([admissionNo])
 }
 
-model FeeHead {
-  id                String   @id @default(cuid())
-  name              String   // e.g. "Admission Fee", "Tuition Fee", "Transport"
-  code              String   @unique // e.g. "ADMISSION", "TUITION"
-  description       String?
-  isRecurring       Boolean  @default(true)
-  defaultAmountPaise Int     @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
+model FeePlan {
+  id                String        @id @default(cuid())
+  studentId         String        @unique
+  admissionFeePaise Int
+  remainingFeePaise Int
+  installmentCount  Int           @default(10)
+  dueDayOfMonth     Int           @default(10)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-model FeeStructure {
-  id               String   @id @default(cuid())
-  sessionId        String
-  classId          String
-  name             String
-  headsJson        String   // JSON array of fee heads breakdown
-  totalAnnualPaise Int      @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  session          Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  class            Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
-
-  @@unique([sessionId, classId])
-}
-
-model StudentFeePlan {
-  id                 String       @id @default(cuid())
-  studentId          String
-  sessionId          String
-  totalFeePaise      Int          // Total agreed fee for session
-  admissionFeePaise  Int          @default(0)
-  discountPaise      Int          @default(0)
-  discountReason     String?
-  remainingFeePaise  Int          // totalFee - discount - admissionFee
-  installmentCount   Int          @default(10) // 10, 11, or 12 months
-  dueDayOfMonth      Int          @default(10)
-  notes              String?
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-
-  student            Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  session            Session      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  installments       Installment[]
-
-  @@unique([studentId, sessionId])
-  @@index([sessionId])
+  student           Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  installments      Installment[]
 }
 
 model Installment {
-  id               String            @id @default(cuid())
-  feePlanId        String
-  studentId        String
-  sessionId        String
-  title            String            // e.g. "April 2026 - Monthly Tuition"
-  monthIndex       Int               // 1 to 12
-  monthName        String            // "April", "May", etc.
-  dueDate          DateTime
-  amountPaise      Int
-  paidAmountPaise  Int               @default(0)
-  fineWaivedPaise  Int               @default(0)
-  status           InstallmentStatus @default(PENDING)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id              String            @id @default(cuid())
+  feePlanId       String
+  studentId       String
+  title           String            // e.g. "April 2026"
+  monthIndex      Int               // 1 to 12
+  monthName       String            // "April", "May", etc.
+  dueDate         DateTime
+  amountPaise     Int
+  paidAmountPaise Int               @default(0)
+  status          InstallmentStatus @default(PENDING)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
-  feePlan          StudentFeePlan    @relation(fields: [feePlanId], references: [id], onDelete: Cascade)
-  student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  session          Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  allocations      PaymentAllocation[]
-  fines            Fine[]
+  feePlan         FeePlan           @relation(fields: [feePlanId], references: [id], onDelete: Cascade)
+  student         Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  allocations     PaymentAllocation[]
+  fines           Fine[]
+  reminderLogs    ReminderLog[]
 
-  @@index([studentId, sessionId])
+  @@index([studentId])
   @@index([status])
   @@index([dueDate])
 }
 
-model Payment {
-  id               String        @id @default(cuid())
-  receiptNo        String        @unique // e.g. "REC-2026-0001"
-  studentId        String
-  sessionId        String
-  amountPaise      Int
-  mode             PaymentMode   @default(CASH)
-  transactionRef   String?       // UTR, UPI ref, Cheque no, or Gateway payment id
-  bankName         String?
-  chequeDate       DateTime?
-  paymentDate      DateTime      @default(now())
-  collectedById    String
-  remarks          String?
-  status           PaymentStatus @default(COMPLETED)
-  reversalReason   String?
-  reversedAt       DateTime?
-  reversedById     String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+model PaymentOrder {
+  id             String             @id @default(cuid())
+  orderId        String             @unique // e.g. "order_123456"
+  studentId      String
+  parentUserId   String?
+  amountPaise    Int
+  status         PaymentOrderStatus @default(CREATED)
+  installmentIds String             // Comma-separated or JSON list of installment IDs
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
-  student          Student       @relation(fields: [studentId], references: [id])
-  session          Session       @relation(fields: [sessionId], references: [id])
-  collectedBy      User          @relation("CollectorUser", fields: [collectedById], references: [id])
-  reversedBy       User?         @relation("ReverserUser", fields: [reversedById], references: [id])
-  allocations      PaymentAllocation[]
+  student        Student            @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parentUser     User?              @relation(fields: [parentUserId], references: [id], onDelete: SetNull)
+  payment        Payment?
+
+  @@index([orderId])
+  @@index([studentId])
+  @@index([parentUserId])
+}
+
+model Payment {
+  id                String              @id @default(cuid())
+  receiptNo         String              @unique // e.g. "REC-2026-001"
+  studentId         String
+  amountPaise       Int
+  mode              PaymentMode         @default(CASH)
+  method            PaymentMethod       @default(CASH)
+  source            PaymentSource       @default(STAFF)
+  txnRef            String?             // UTR / UPI Ref / Card Txn ID or Cash Note
+  gatewayOrderId    String?
+  gatewayPaymentId  String?
+  gatewaySignature  String?
+  paymentOrderId    String?             @unique
+  paymentDate       DateTime            @default(now())
+  remarks           String?
+  collectedById     String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  student           Student             @relation(fields: [studentId], references: [id])
+  collectedBy       User?               @relation(fields: [collectedById], references: [id])
+  paymentOrder      PaymentOrder?       @relation(fields: [paymentOrderId], references: [id])
+  allocations       PaymentAllocation[]
 
   @@index([studentId])
-  @@index([sessionId])
   @@index([paymentDate])
   @@index([mode])
-  @@index([status])
+  @@index([method])
 }
 
 model PaymentAllocation {
-  id               String      @id @default(cuid())
-  paymentId        String
-  installmentId    String
-  amountPaise      Int         // principal fee paid
-  finePaidPaise    Int         @default(0)
-  createdAt        DateTime    @default(now())
+  id            String      @id @default(cuid())
+  paymentId     String
+  installmentId String
+  amountPaise   Int         // Principal fee allocated
+  finePaidPaise Int         @default(0)
+  createdAt     DateTime    @default(now())
 
-  payment          Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-  installment      Installment @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+  payment       Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  installment   Installment @relation(fields: [installmentId], references: [id], onDelete: Cascade)
 
   @@index([paymentId])
   @@index([installmentId])
 }
 
 model Fine {
-  id             String      @id @default(cuid())
-  installmentId  String
-  studentId      String
-  sessionId      String
-  amountPaise    Int         // Calculated fine
-  daysOverdue    Int
-  isWaived       Boolean     @default(false)
-  waiverReason   String?
-  waivedById     String?
-  waivedAt       DateTime?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id            String      @id @default(cuid())
+  installmentId String
+  studentId     String
+  amountPaise   Int         // Computed fine
+  daysOverdue   Int         @default(0)
+  isWaived      Boolean     @default(false)
+  waiverReason  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
-  installment    Installment @relation(fields: [installmentId], references: [id], onDelete: Cascade)
-  student        Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  session        Session     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  waivedBy       User?       @relation("FineWaivedUser", fields: [waivedById], references: [id])
+  installment   Installment @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+  student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([installmentId])
   @@index([studentId])
-  @@index([sessionId])
-}
-
-model Expense {
-  id             String          @id @default(cuid())
-  sessionId      String
-  title          String
-  category       ExpenseCategory @default(OTHER)
-  amountPaise    Int
-  mode           PaymentMode     @default(CASH)
-  paymentDate    DateTime        @default(now())
-  receiptNo      String?
-  vendorName     String?
-  remarks        String?
-  createdById    String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-
-  session        Session         @relation(fields: [sessionId], references: [id])
-  createdBy      User            @relation("ExpenseCreatedUser", fields: [createdById], references: [id])
-
-  @@index([sessionId])
-  @@index([paymentDate])
-  @@index([category])
-  @@index([mode])
-}
-
-model CashBookDay {
-  id                  String    @id @default(cuid())
-  sessionId           String
-  date                DateTime  // Day represented (midnight UTC)
-  openingBalancePaise Int       @default(0)
-  totalReceiptsPaise  Int       @default(0)
-  totalExpensesPaise  Int       @default(0)
-  closingBalancePaise Int       @default(0)
-  isClosed            Boolean   @default(false)
-  closedById          String?
-  closedAt            DateTime?
-  remarks             String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  session             Session   @relation(fields: [sessionId], references: [id])
-  closedBy            User?     @relation("CashBookClosedUser", fields: [closedById], references: [id])
-
-  @@unique([sessionId, date])
-  @@index([date])
-}
-
-model ReminderTemplate {
-  id         String          @id @default(cuid())
-  name       String
-  channel    ReminderChannel @default(WHATSAPP)
-  language   Language        @default(EN)
-  content    String          // Contains placeholders: {student}, {amount}, {due_date}, {school}
-  isDefault  Boolean         @default(false)
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
 }
 
 model ReminderLog {
-  id             String          @id @default(cuid())
-  studentId      String
-  sessionId      String
-  recipientPhone String
-  recipientName  String
-  channel        ReminderChannel @default(WHATSAPP)
-  templateName   String?
-  messageContent String
-  amountDuePaise Int             @default(0)
-  status         ReminderStatus  @default(SENT)
-  providerRef    String?
-  sentById       String?
-  createdAt      DateTime        @default(now())
+  id            String      @id @default(cuid())
+  studentId     String
+  installmentId String?
+  message       String
+  sentAt        DateTime    @default(now())
+  sentById      String
 
-  student        Student         @relation(fields: [studentId], references: [id])
-  session        Session         @relation(fields: [sessionId], references: [id])
-  sentBy         User?           @relation(fields: [sentById], references: [id])
+  student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  installment   Installment? @relation(fields: [installmentId], references: [id], onDelete: SetNull)
+  sentBy        User        @relation(fields: [sentById], references: [id])
 
   @@index([studentId])
-  @@index([sessionId])
-  @@index([createdAt])
-}
-
-model AuditLog {
-  id         String   @id @default(cuid())
-  userId     String?
-  userName   String?
-  userRole   String?
-  action     String   // "PAYMENT_COLLECTED", "PAYMENT_REVERSED", "FINE_WAIVED", "STUDENT_CREATED", "SETTINGS_UPDATED", etc.
-  entityType String   // "Payment", "Student", "Fine", "CashBook", "Setting"
-  entityId   String?
-  details    String?  // JSON string with before/after or payload details
-  ipAddress  String?
-  createdAt  DateTime @default(now())
-
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([entityType, entityId])
-  @@index([action])
-  @@index([createdAt])
-}
-
-model Setting {
-  id        String   @id @default(cuid())
-  key       String   @unique
-  value     String
-  category  String   @default("general")
-  updatedAt DateTime @updatedAt
-
-  @@index([category])
+  @@index([sentAt])
 }

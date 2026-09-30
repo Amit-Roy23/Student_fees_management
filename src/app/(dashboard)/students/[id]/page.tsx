@@ -18,7 +18,7 @@ export default async function StudentDetailPage({
     notFound();
   }
 
-  const userRole = (session.user as any).role || "ACCOUNTANT";
+  const userRole = (session.user as any).role || "MD";
 
   return <StudentProfileClient student={student} userRole={userRole} />;
 }
