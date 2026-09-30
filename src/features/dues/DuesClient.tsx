@@ -55,6 +55,15 @@ export function DuesClient({
   const [selectedClass, setSelectedClass] = React.useState<string>("ALL");
   const [loading, setLoading] = React.useState(false);
 
+  const sortedClasses = React.useMemo(() => {
+    return [...(data?.classes || [])].sort((a, b) => {
+      const orderA = a.order ?? 0;
+      const orderB = b.order ?? 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+    });
+  }, [data?.classes]);
+
   // Single Reminder Modal State
   const [activeItem, setActiveItem] = React.useState<any | null>(null);
   const [sendingSingle, setSendingSingle] = React.useState(false);
@@ -282,7 +291,7 @@ export function DuesClient({
           </SelectTrigger>
           <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
             <SelectItem value="ALL">{t.common.allClasses}</SelectItem>
-            {data.classes.map((cls) => (
+            {sortedClasses.map((cls) => (
               <SelectItem key={cls.id} value={cls.id}>
                 {cls.name}
               </SelectItem>

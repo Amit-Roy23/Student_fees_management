@@ -26,6 +26,14 @@ export function FeeStructuresClient({
   userRole: string;
 }) {
   const { t } = useI18n();
+  const sortedClasses = React.useMemo(() => {
+    return [...classes].sort((a, b) => {
+      const orderA = a.order ?? 0;
+      const orderB = b.order ?? 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+    });
+  }, [classes]);
   const [editingClass, setEditingClass] = React.useState<any | null>(null);
   const [formData, setFormData] = React.useState({
     admissionFeePaise: 0,
@@ -110,7 +118,7 @@ export function FeeStructuresClient({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {classes.map((c) => {
+              {sortedClasses.map((c) => {
                 const totalFee = c.admissionFeePaise + c.remainingFeePaise;
                 const monthly = Math.round(c.remainingFeePaise / (c.installmentCount || 10));
 

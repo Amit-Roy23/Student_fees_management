@@ -52,20 +52,29 @@ export function StudentsListClient({
   const [search, setSearch] = React.useState("");
   const [selectedClass, setSelectedClass] = React.useState("ALL");
 
+  const sortedClasses = React.useMemo(() => {
+    return [...classes].sort((a, b) => {
+      const orderA = a.order ?? 0;
+      const orderB = b.order ?? 0;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+    });
+  }, [classes]);
+
   // New Student Dialog Modal
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [isCreating, setIsCreating] = React.useState(false);
   const [formData, setFormData] = React.useState({
     admissionNo: `AVM-2026-${String(Math.floor(Math.random() * 9000 + 1000))}`,
     name: "",
-    classId: classes[0]?.id || "",
+    classId: sortedClasses[0]?.id || "",
     guardianName: "",
     guardianPhone: "",
     address: "Kolkata, West Bengal",
     admissionDate: new Date().toISOString().split("T")[0],
-    admissionFeePaise: classes[0]?.admissionFeePaise || 600000,
-    totalFeePaise: (classes[0]?.admissionFeePaise || 600000) + (classes[0]?.remainingFeePaise || 3600000),
-    installmentCount: classes[0]?.installmentCount || 10,
+    admissionFeePaise: sortedClasses[0]?.admissionFeePaise || 600000,
+    totalFeePaise: (sortedClasses[0]?.admissionFeePaise || 600000) + (sortedClasses[0]?.remainingFeePaise || 3600000),
+    installmentCount: sortedClasses[0]?.installmentCount || 10,
   });
 
   const canImport = hasPermission(userRole, "EXCEL_IMPORT");
@@ -221,8 +230,8 @@ export function StudentsListClient({
                   <SelectValue placeholder={t.common.allClasses} />
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-                  <SelectItem value="ALL">{t.common.allClasses} ({classes.length})</SelectItem>
-                  {classes.map((c) => (
+                  <SelectItem value="ALL">{t.common.allClasses} ({sortedClasses.length})</SelectItem>
+                  {sortedClasses.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>
@@ -369,7 +378,7 @@ export function StudentsListClient({
                     <SelectValue placeholder="Select Class" />
                   </SelectTrigger>
                   <SelectContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-                    {classes.map((c) => (
+                    {sortedClasses.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>

@@ -190,7 +190,12 @@ async function main() {
   for (const c of classData) {
     const cls = await prisma.class.upsert({
       where: { code: c.code },
-      update: {},
+      update: {
+        name: c.name,
+        order: c.order,
+        admissionFeePaise: c.admissionFeePaise,
+        remainingFeePaise: c.remainingFeePaise,
+      },
       create: {
         name: c.name,
         code: c.code,
@@ -248,23 +253,23 @@ async function main() {
       sessionStartYear: 2026,
     });
 
-    const createdInstallments = [];
-    for (const s of schedules) {
-      const inst = await prisma.installment.create({
-        data: {
-          feePlanId: feePlan.id,
-          studentId: student.id,
-          title: s.title,
-          monthIndex: s.monthIndex,
-          monthName: s.monthName,
-          dueDate: s.dueDate,
-          amountPaise: s.amountPaise,
-          paidAmountPaise: 0,
-          status: InstallmentStatus.PENDING,
-        },
-      });
-      createdInstallments.push(inst);
-    }
+    const createdInstallments = await Promise.all(
+      schedules.map((s) =>
+        prisma.installment.create({
+          data: {
+            feePlanId: feePlan.id,
+            studentId: student.id,
+            title: s.title,
+            monthIndex: s.monthIndex,
+            monthName: s.monthName,
+            dueDate: s.dueDate,
+            amountPaise: s.amountPaise,
+            paidAmountPaise: 0,
+            status: InstallmentStatus.PENDING,
+          },
+        })
+      )
+    );
 
     // Handle payments:
     // Sibling 1 (Rohan Sharma, Parent 1): Paid April via UPI online
