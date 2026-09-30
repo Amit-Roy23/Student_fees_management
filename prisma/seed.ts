@@ -68,6 +68,16 @@ const BENGALI_STUDENT_NAMES = [
 async function main() {
   console.log("🌱 Seeding SchoolPay demo database with MD, Clerk, and 4 Parents...");
 
+  // Clean existing transactional and student demo records to ensure seed idempotency
+  await prisma.paymentAllocation.deleteMany();
+  await prisma.fine.deleteMany();
+  await prisma.reminderLog.deleteMany();
+  await prisma.payment.deleteMany();
+  await prisma.paymentOrder.deleteMany();
+  await prisma.installment.deleteMany();
+  await prisma.feePlan.deleteMany();
+  await prisma.student.deleteMany();
+
   // 1. Create Staff & Parent Users
   const mdHash = await bcrypt.hash("md123", 10);
   const clerkHash = await bcrypt.hash("clerk123", 10);
@@ -160,14 +170,20 @@ async function main() {
 
   console.log("✓ Created MD, Clerk, and 4 Parent users");
 
-  // 2. Create 6 Classes
+  // 2. Create 12 Classes (Class 1 to Class 12)
   const classData = [
     { name: "Class 1", code: "C1", order: 1, admissionFeePaise: 600000, remainingFeePaise: 3600000 },
     { name: "Class 2", code: "C2", order: 2, admissionFeePaise: 600000, remainingFeePaise: 3800000 },
-    { name: "Class 5", code: "C5", order: 3, admissionFeePaise: 750000, remainingFeePaise: 4200000 },
-    { name: "Class 8", code: "C8", order: 4, admissionFeePaise: 800000, remainingFeePaise: 4800000 },
-    { name: "Class 9", code: "C9", order: 5, admissionFeePaise: 900000, remainingFeePaise: 5400000 },
-    { name: "Class 10", code: "C10", order: 6, admissionFeePaise: 1000000, remainingFeePaise: 6000000 },
+    { name: "Class 3", code: "C3", order: 3, admissionFeePaise: 650000, remainingFeePaise: 3900000 },
+    { name: "Class 4", code: "C4", order: 4, admissionFeePaise: 700000, remainingFeePaise: 4000000 },
+    { name: "Class 5", code: "C5", order: 5, admissionFeePaise: 750000, remainingFeePaise: 4200000 },
+    { name: "Class 6", code: "C6", order: 6, admissionFeePaise: 750000, remainingFeePaise: 4400000 },
+    { name: "Class 7", code: "C7", order: 7, admissionFeePaise: 800000, remainingFeePaise: 4600000 },
+    { name: "Class 8", code: "C8", order: 8, admissionFeePaise: 800000, remainingFeePaise: 4800000 },
+    { name: "Class 9", code: "C9", order: 9, admissionFeePaise: 900000, remainingFeePaise: 5400000 },
+    { name: "Class 10", code: "C10", order: 10, admissionFeePaise: 1000000, remainingFeePaise: 6000000 },
+    { name: "Class 11", code: "C11", order: 11, admissionFeePaise: 1200000, remainingFeePaise: 7200000 },
+    { name: "Class 12", code: "C12", order: 12, admissionFeePaise: 1200000, remainingFeePaise: 7200000 },
   ];
 
   const classMap = new Map<string, any>();
