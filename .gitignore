@@ -12,8 +12,13 @@ pnpm-debug.log*
 # Environment
 .env*.local
 .env
+.env.*
+!.env.example
 
 # Database
+*.db
+*.db-journal
+dev.db
 prisma/*.db
 prisma/*.db-journal
 

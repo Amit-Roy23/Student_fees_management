@@ -18,9 +18,9 @@ export async function searchStudentsForPayment(query: string) {
   const students = await db.student.findMany({
     where: {
       OR: [
-        { name: { contains: q } },
-        { admissionNo: { contains: q } },
-        { guardianPhone: { contains: q } },
+        { name: { contains: q, mode: "insensitive" } },
+        { admissionNo: { contains: q, mode: "insensitive" } },
+        { guardianPhone: { contains: q, mode: "insensitive" } },
       ],
     },
     include: {

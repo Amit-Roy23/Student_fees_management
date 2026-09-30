@@ -37,10 +37,10 @@ export async function getStudents(params?: {
   if (params?.query && params.query.trim()) {
     const q = params.query.trim();
     whereClause.OR = [
-      { name: { contains: q } },
-      { admissionNo: { contains: q } },
-      { guardianPhone: { contains: q } },
-      { guardianName: { contains: q } },
+      { name: { contains: q, mode: "insensitive" } },
+      { admissionNo: { contains: q, mode: "insensitive" } },
+      { guardianPhone: { contains: q, mode: "insensitive" } },
+      { guardianName: { contains: q, mode: "insensitive" } },
     ];
   }
 
